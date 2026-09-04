@@ -1,0 +1,51 @@
+[project]
+name = "fakemkbot-train"
+version = "0.1.0"
+description = "Fine-tune a CUDA language model on Telegram message style"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "accelerate==1.10.1",
+  "bitsandbytes==0.50.2",
+  "peft==0.17.1",
+  "safetensors>=0.6,<1",
+  "torch==2.8.0",
+  "transformers==4.56.2",
+]
+
+[project.scripts]
+fakemkbot-prepare = "fakemkbot_train.prepare:main"
+fakemkbot-train = "fakemkbot_train.train:main"
+fakemkbot-generate = "fakemkbot_train.generate:main"
+fakemkbot-worker = "fakemkbot_train.serve:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+  "pytest>=8.4,<9",
+  "ruff>=0.12,<1",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fakemkbot_train"]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
+
+[tool.uv.sources]
+torch = [{ index = "pytorch-cu128", marker = "sys_platform == 'linux'" }]

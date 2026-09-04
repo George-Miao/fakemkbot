@@ -1,0 +1,15 @@
+[package]
+name = "fakemkbot-collector"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+clap.workspace = true
+dotenvy.workspace = true
+grammers-client.workspace = true
+grammers-mtsender.workspace = true
+grammers-session.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
