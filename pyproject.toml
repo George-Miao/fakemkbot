@@ -17,6 +17,7 @@ fakemkbot-prepare = "fakemkbot_train.prepare:main"
 fakemkbot-train = "fakemkbot_train.train:main"
 fakemkbot-generate = "fakemkbot_train.generate:main"
 fakemkbot-worker = "fakemkbot_train.serve:main"
+fakemkbot-umt5-prototype = "fakemkbot_train.umt5_prototype:main"
 
 [build-system]
 requires = ["hatchling"]
