@@ -1,12 +1,12 @@
 # Model selection for mandatory substring inclusion
 
-Research date: 2026-09-01. This report applies to `transformers==4.56.2` and the current RTX 3070 system.
+Research date: 2026-09-08. This report applies to `transformers==4.56.2` and the current RTX 3070 system.
 
 ## Decision
 
-Keep **`Qwen/Qwen2.5-1.5B-Instruct`** as the production model. A local UMT5-base trial proved that dual-sentinel output can enforce exact inclusion, but its generated joins were less fluent than the current Qwen output.
+Keep **`Qwen/Qwen2.5-1.5B-Instruct`** as the production model. Local UMT5-base and Qwen3-1.7B trials did not show a clear quality gain.
 
-Use **`Qwen/Qwen3-1.7B` in non-thinking mode** as the next quality experiment. It is post-trained for creative writing, dialogue, and instruction following. Do not promote UMT5-base without a larger corpus or a blind evaluation that shows a clear fluency gain.
+The Qwen3 adapter produced coherent, short Chinese and matched the corpus character distribution better than Qwen2.5. It was not consistently more relevant or natural on the small paired sample. Keep it as a candidate until a blind review selects it.
 
 Do not ask any model to guarantee inclusion by prompt alone. Make exact inclusion an application invariant:
 
@@ -38,8 +38,8 @@ The ratings below are engineering judgments. Official benchmarks do not measure 
 | Rank | Model | Generation design | Main benefit | RTX 3070 fit | Decision |
 |---:|---|---|---|---|---|
 | 1 | UMT5-base | Generate left and right missing spans | Direct task fit and newer multilingual pretraining | Measured at 2,507 MiB allocated | Exact inclusion passed, fluency failed |
-| 2 | Qwen3-1.7B | Generate one marker, then splice | Strong multilingual instruction and creative chat capability | Good with NF4 QLoRA | Likely naturalness challenger |
-| 3 | Qwen2.5-1.5B-Instruct | Generate one marker, then splice | Existing adapter and proven local operation | Proven | Quality baseline |
+| 2 | Qwen3-1.7B | Generate one marker, then splice | Strong multilingual instruction and creative chat capability | Measured at 2,476 MiB allocated for generation | Coherent trial; blind rating needed |
+| 3 | Qwen2.5-1.5B-Instruct | Generate one marker, then splice | Existing adapter and proven local operation | Measured at 1,242 MiB allocated for generation | Production baseline |
 | 4 | ByT5-small | Generate left and right missing spans | Raw-byte conditioning for noisy text | Good with LoRA | Noise ablation |
 | 5 | Retrieval or fixed templates | Insert the raw text into a selected pattern | Exact, fast, and no training | Excellent | Deterministic baseline |
 | 6 | Character n-gram or recurrent LM | Generate forward and backward from the anchor | Very small and easy to train | Excellent | Memorization diagnostic |
@@ -54,6 +54,20 @@ The final evaluation loss was 2.9733. All 59 seeded held-out generations had val
 The structure result passed, but the language result failed. Custom outputs included `今天我是好了`, `要cuda有多个`, `绷不住了都可以`, `不RTX 3070是`, and `你🤔`. The anchor placement was exact, but most joins were incomplete or ungrammatical. Held-out samples had the same problem. The current Qwen adapter produces more complete colloquial Chinese, so the UMT5 adapter was not deployed.
 
 This was not a blind model comparison because the current Qwen worker does not yet implement the same marker-and-splice contract. The result is sufficient to reject UMT5-base as the next production default, not to rank all later models.
+
+## Local Qwen3 trial
+
+The CUDA trial used `Qwen/Qwen3-1.7B` in non-thinking mode. The full rank-16 configuration did not fit beside the desktop workload, even after the Telegram bot stopped. The successful configuration used NF4 loading, rank-8 LoRA on all seven projection groups, a sequence length of 128, paged 8-bit AdamW, batch size 1, and two epochs.
+
+The trial trained 8,716,288 parameters on 1,117 records and evaluated on 59 records. Training loss was 4.2903, and final evaluation loss was 4.1448.
+
+The paired generation check used 11 fixed Chinese prompts, seeds 42 through 52, temperature 0.9, top-p 0.9, and at most 80 new tokens. Both models returned 11 non-empty, unique outputs and copied no complete training message.
+
+Qwen3 had a mean output length of 5.45 characters, a character-unigram negative log likelihood of 5.63, and a mean nearest-training-message similarity of 0.57. Qwen2.5 measured 8.27, 5.97, and 0.47. Lower negative log likelihood and higher nearest similarity show that Qwen3 stayed closer to the small style corpus, but these are not human quality scores.
+
+Qwen3 examples included `我好可爱呀`, `我超大算力的`, `打游戏，摸鱼`, and `我就是个白痴`. Qwen2.5 examples for the same prompts included `就是打完球`, `我玩的都是低端的游戏`, `打游戏，想吃大鱼大肉，想睡大觉，想看大剧，然后就干`, and `打游戏`.
+
+Qwen3 was coherent and concise, but several answers were less relevant to their prompts. Generation peaked at 2,476 MiB allocated and 2,890 MiB reserved, compared with 1,242 MiB and 1,318 MiB for Qwen2.5. Keep Qwen2.5 as the quality baseline until a blind reviewer prefers Qwen3 on a larger fixed sample. The Telegram bot now runs `artifacts/qwen3-style` for a user-selected live trial.
 
 ### UMT5-base
 
@@ -289,4 +303,4 @@ These are estimates with about 1 to 2 GiB uncertainty. CUDA workspaces, allocato
 
 ## Final recommendation
 
-Keep the current Qwen2.5 adapter as the production model. Build exact inclusion once as a model-independent marker-and-splice invariant, then test Qwen3-1.7B as the next naturalness challenger. The completed UMT5-base trial reached 100 percent structured inclusion but produced poor Chinese joins, so do not deploy it. Test ByT5-small only for a focused noisy-input ablation. Change the production model only after a blind held-out comparison.
+Keep the current Qwen2.5 adapter as the production model. The Qwen3-1.7B low-memory trial produced coherent, corpus-like text, but the 11-prompt comparison did not show a clear relevance or naturalness gain and used about twice the generation memory. Build exact inclusion once as a model-independent marker-and-splice invariant. Do not deploy UMT5-base. Test ByT5-small only for a focused noisy-input ablation. Change the production model only after a blind held-out comparison.
