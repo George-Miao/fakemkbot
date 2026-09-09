@@ -98,11 +98,13 @@ def encode_messages(
         messages[:-1],
         tokenize=False,
         add_generation_prompt=True,
+        enable_thinking=False,
     )
     full_text = tokenizer.apply_chat_template(
         messages,
         tokenize=False,
         add_generation_prompt=False,
+        enable_thinking=False,
     )
     full = tokenizer(
         full_text,
@@ -157,6 +159,8 @@ def train(
     max_length: int,
     batch_size: int,
     gradient_accumulation_steps: int,
+    lora_rank: int,
+    optimizer: str,
     seed: int,
 ) -> None:
     require_cuda()
@@ -189,8 +193,8 @@ def train(
         model,
         LoraConfig(
             task_type=TaskType.CAUSAL_LM,
-            r=16,
-            lora_alpha=32,
+            r=lora_rank,
+            lora_alpha=lora_rank * 2,
             lora_dropout=0.05,
             target_modules=LORA_TARGET_MODULES,
             bias="none",
@@ -217,7 +221,7 @@ def train(
         bf16=use_bf16,
         fp16=not use_bf16,
         tf32=True,
-        optim="adamw_torch_fused",
+        optim=optimizer,
         gradient_checkpointing=True,
         gradient_checkpointing_kwargs={"use_reentrant": False},
         report_to="none",
@@ -250,6 +254,8 @@ def train(
                 "max_length": max_length,
                 "quantization": "nf4",
                 "seed": seed,
+                "lora_rank": lora_rank,
+                "optimizer": optimizer,
             },
             indent=2,
         )
@@ -273,6 +279,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--max-length", type=int, default=256)
     parser.add_argument("--batch-size", type=int, default=1)
     parser.add_argument("--gradient-accumulation-steps", type=int, default=8)
+    parser.add_argument("--lora-rank", type=int, default=16)
+    parser.add_argument("--optimizer", default="adamw_torch_fused")
     parser.add_argument("--seed", type=int, default=42)
     return parser
 
@@ -289,6 +297,8 @@ def main() -> None:
         max_length=args.max_length,
         batch_size=args.batch_size,
         gradient_accumulation_steps=args.gradient_accumulation_steps,
+        lora_rank=args.lora_rank,
+        optimizer=args.optimizer,
         seed=args.seed,
     )
 
